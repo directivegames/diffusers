@@ -100,6 +100,12 @@ class StableDiffusionImg2ImgPipeline(DiffusionPipeline):
             timesteps = self.scheduler.timesteps[-init_timestep]
             timesteps = torch.tensor([timesteps] * batch_size, dtype=torch.long, device=self.device)
 
+        if True:
+            # WITH_DIRECTIVE
+            # timesteps need to be moved to the cpu otherwise add_noise will crash on mps
+            # see https://github.com/huggingface/diffusers/issues/239
+            timesteps = timesteps.to("cpu")
+
         # add noise to latents using the timesteps
         noise = torch.randn(init_latents.shape, generator=generator, device=self.device)
         init_latents = self.scheduler.add_noise(init_latents, noise, timesteps).to(self.device)
