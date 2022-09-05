@@ -135,7 +135,12 @@ def main(args):
 
             # Add noise to the clean images according to the noise magnitude at each timestep
             # (this is the forward diffusion process)
-            noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
+            # WITH_DIRECTIVE
+            if 1:
+                # timesteps needs to be on the cpu when using mps
+                noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps.cpu())
+            else:
+                noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
 
             with accelerator.accumulate(model):
                 # Predict the noise residual
