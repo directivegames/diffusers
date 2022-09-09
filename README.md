@@ -30,7 +30,7 @@ More precisely, 🤗 Diffusers offers:
 **With `pip`**
     
 ```bash
-pip install --upgrade diffusers  # should install diffusers 0.2.4
+pip install --upgrade diffusers
 ```
 
 **With `conda`**
@@ -38,6 +38,10 @@ pip install --upgrade diffusers  # should install diffusers 0.2.4
 ```sh
 conda install -c conda-forge diffusers
 ```
+
+**Apple Silicon (M1/M2) support**
+
+Please, refer to [the documentation](https://huggingface.co/docs/diffusers/optimization/mps).
 
 ## Contributing
 
@@ -80,7 +84,7 @@ pipe = pipe.to("cuda")
 
 prompt = "a photo of an astronaut riding a horse on mars"
 with autocast("cuda"):
-    image = pipe(prompt)["sample"][0]  
+    image = pipe(prompt).images[0]  
 ```
 
 **Note**: If you don't want to use the token, you can also simply download the model weights
@@ -101,10 +105,12 @@ pipe = pipe.to("cuda")
 
 prompt = "a photo of an astronaut riding a horse on mars"
 with autocast("cuda"):
-    image = pipe(prompt)["sample"][0]  
+    image = pipe(prompt).images[0]  
 ```
 
-If you are limited by GPU memory, you might want to consider using the model in `fp16`.
+If you are limited by GPU memory, you might want to consider using the model in `fp16` as 
+well as chunking the attention computation.
+The following snippet should result in less than 4GB VRAM.
 
 ```python
 pipe = StableDiffusionPipeline.from_pretrained(
@@ -116,8 +122,9 @@ pipe = StableDiffusionPipeline.from_pretrained(
 pipe = pipe.to("cuda")
 
 prompt = "a photo of an astronaut riding a horse on mars"
+pipe.enable_attention_slicing()
 with autocast("cuda"):
-    image = pipe(prompt)["sample"][0]  
+    image = pipe(prompt).images[0]  
 ```
 
 Finally, if you wish to use a different scheduler, you can simply instantiate
@@ -143,7 +150,7 @@ pipe = pipe.to("cuda")
 
 prompt = "a photo of an astronaut riding a horse on mars"
 with autocast("cuda"):
-    image = pipe(prompt)["sample"][0]  
+    image = pipe(prompt).images[0]  
     
 image.save("astronaut_rides_horse.png")
 ```
@@ -184,7 +191,7 @@ init_image = init_image.resize((768, 512))
 prompt = "A fantasy landscape, trending on artstation"
 
 with autocast("cuda"):
-    images = pipe(prompt=prompt, init_image=init_image, strength=0.75, guidance_scale=7.5)["sample"]
+    images = pipe(prompt=prompt, init_image=init_image, strength=0.75, guidance_scale=7.5).images
 
 images[0].save("fantasy_landscape.png")
 ```
@@ -228,7 +235,7 @@ pipe = pipe.to(device)
 
 prompt = "a cat sitting on a bench"
 with autocast("cuda"):
-    images = pipe(prompt=prompt, init_image=init_image, mask_image=mask_image, strength=0.75)["sample"]
+    images = pipe(prompt=prompt, init_image=init_image, mask_image=mask_image, strength=0.75).images
 
 images[0].save("cat_on_bench.png")
 ```
@@ -251,36 +258,43 @@ If you want to run the code yourself 💻, you can try out:
 - [Text-to-Image Latent Diffusion](https://huggingface.co/CompVis/ldm-text2im-large-256)
 ```python
 # !pip install diffusers transformers
+from torch import autocast
 from diffusers import DiffusionPipeline
 
+device = "cuda"
 model_id = "CompVis/ldm-text2im-large-256"
 
 # load model and scheduler
 ldm = DiffusionPipeline.from_pretrained(model_id)
+ldm = ldm.to(device)
 
 # run pipeline in inference (sample random noise and denoise)
 prompt = "A painting of a squirrel eating a burger"
-images = ldm([prompt], num_inference_steps=50, eta=0.3, guidance_scale=6)["sample"]
+with autocast(device):
+    image = ldm([prompt], num_inference_steps=50, eta=0.3, guidance_scale=6).images[0]
 
-# save images
-for idx, image in enumerate(images):
-    image.save(f"squirrel-{idx}.png")
+# save image
+image.save("squirrel.png")
 ```
 - [Unconditional Diffusion with discrete scheduler](https://huggingface.co/google/ddpm-celebahq-256)
 ```python
 # !pip install diffusers
+from torch import autocast
 from diffusers import DDPMPipeline, DDIMPipeline, PNDMPipeline
 
 model_id = "google/ddpm-celebahq-256"
+device = "cuda"
 
 # load model and scheduler
 ddpm = DDPMPipeline.from_pretrained(model_id)  # you can replace DDPMPipeline with DDIMPipeline or PNDMPipeline for faster inference
+ddpm.to(device)
 
 # run pipeline in inference (sample random noise and denoise)
-image = ddpm()["sample"]
+with autocast("cuda"):
+    image = ddpm().images[0]
 
 # save image
-image[0].save("ddpm_generated_image.png")
+image.save("ddpm_generated_image.png")
 ```
 - [Unconditional Latent Diffusion](https://huggingface.co/CompVis/ldm-celebahq-256)
 - [Unconditional Diffusion with continous scheduler](https://huggingface.co/google/ncsnpp-ffhq-1024)
